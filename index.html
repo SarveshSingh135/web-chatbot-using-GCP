@@ -1,0 +1,844 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GCP AI Chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gcp-blue: #4285F4;
+    --gcp-red: #EA4335;
+    --gcp-yellow: #FBBC04;
+    --gcp-green: #34A853;
+    --bg-dark: #0D1117;
+    --bg-card: #161B22;
+    --bg-input: #1C2128;
+    --border: #30363D;
+    --text-primary: #E6EDF3;
+    --text-muted: #7D8590;
+    --text-code: #79C0FF;
+    --surface: #21262D;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Google Sans', sans-serif;
+    background: var(--bg-dark);
+    color: var(--text-primary);
+    height: 100vh;
+    display: flex;
+    overflow: hidden;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 20px 0;
+    flex-shrink: 0;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 20px 24px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .logo-dots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    width: 22px;
+    height: 22px;
+  }
+
+  .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+  }
+  .dot:nth-child(1) { background: var(--gcp-blue); }
+  .dot:nth-child(2) { background: var(--gcp-red); }
+  .dot:nth-child(3) { background: var(--gcp-green); }
+  .dot:nth-child(4) { background: var(--gcp-yellow); }
+
+  .logo-text {
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+
+  .logo-text span { color: var(--gcp-blue); }
+
+  .new-chat-btn {
+    margin: 16px 16px 0;
+    background: linear-gradient(135deg, var(--gcp-blue), #1a73e8);
+    border: none;
+    border-radius: 8px;
+    padding: 10px 16px;
+    color: white;
+    font-family: 'Google Sans', sans-serif;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: opacity 0.2s, transform 0.15s;
+  }
+
+  .new-chat-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+  .sidebar-section {
+    padding: 20px 16px 8px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+  }
+
+  .chat-item {
+    padding: 8px 16px;
+    cursor: pointer;
+    border-radius: 6px;
+    margin: 0 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    transition: background 0.15s, color 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chat-item:hover { background: var(--surface); color: var(--text-primary); }
+  .chat-item.active { background: rgba(66, 133, 244, 0.15); color: var(--gcp-blue); }
+
+  .chat-item svg { flex-shrink: 0; opacity: 0.6; }
+
+  .model-badge {
+    margin: auto 16px 16px;
+    background: rgba(52, 168, 83, 0.1);
+    border: 1px solid rgba(52, 168, 83, 0.3);
+    border-radius: 8px;
+    padding: 10px 12px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .model-pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--gcp-green);
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(52,168,83,0.4); }
+    50% { opacity: 0.8; box-shadow: 0 0 0 6px rgba(52,168,83,0); }
+  }
+
+  .model-info { font-size: 11px; }
+  .model-name { color: var(--gcp-green); font-weight: 600; font-size: 12px; }
+  .model-label { color: var(--text-muted); font-size: 10px; margin-top: 1px; }
+
+  /* Main Chat */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Header */
+  .header {
+    padding: 16px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--bg-card);
+  }
+
+  .header-title {
+    font-size: 15px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .header-badge {
+    font-size: 10px;
+    background: rgba(66,133,244,0.15);
+    color: var(--gcp-blue);
+    border: 1px solid rgba(66,133,244,0.3);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .icon-btn {
+    width: 34px;
+    height: 34px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .icon-btn:hover { color: var(--text-primary); background: var(--bg-input); }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+
+  .messages::-webkit-scrollbar { width: 4px; }
+  .messages::-webkit-scrollbar-track { background: transparent; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* Welcome */
+  .welcome {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    text-align: center;
+    padding: 40px 20px;
+    gap: 16px;
+  }
+
+  .welcome-icon {
+    width: 64px;
+    height: 64px;
+    background: linear-gradient(135deg, rgba(66,133,244,0.2), rgba(52,168,83,0.2));
+    border: 1px solid rgba(66,133,244,0.3);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+
+  .welcome h2 {
+    font-size: 24px;
+    font-weight: 700;
+    background: linear-gradient(135deg, var(--gcp-blue), var(--gcp-green));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .welcome p {
+    font-size: 14px;
+    color: var(--text-muted);
+    max-width: 420px;
+    line-height: 1.6;
+  }
+
+  .suggestions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    width: 100%;
+    max-width: 520px;
+    margin-top: 8px;
+  }
+
+  .suggestion-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  }
+
+  .suggestion-card:hover {
+    border-color: var(--gcp-blue);
+    background: rgba(66,133,244,0.05);
+    transform: translateY(-1px);
+  }
+
+  .suggestion-card .s-icon {
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  .suggestion-card .s-title {
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+
+  .suggestion-card .s-desc {
+    font-size: 11px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* Message row */
+  .msg-row {
+    display: flex;
+    gap: 14px;
+    animation: fadeUp 0.3s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg-row.user { flex-direction: row-reverse; }
+
+  .avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+  }
+
+  .avatar.bot {
+    background: linear-gradient(135deg, var(--gcp-blue), #1a73e8);
+    color: white;
+  }
+
+  .avatar.user-av {
+    background: linear-gradient(135deg, var(--gcp-green), #1e8e3e);
+    color: white;
+  }
+
+  .bubble {
+    max-width: 72%;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 14px;
+    line-height: 1.65;
+  }
+
+  .msg-row.bot .bubble {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-top-left-radius: 4px;
+  }
+
+  .msg-row.user .bubble {
+    background: linear-gradient(135deg, rgba(66,133,244,0.25), rgba(66,133,244,0.15));
+    border: 1px solid rgba(66,133,244,0.3);
+    border-top-right-radius: 4px;
+    color: var(--text-primary);
+  }
+
+  .bubble code {
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12px;
+    background: rgba(121,192,255,0.1);
+    color: var(--text-code);
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+
+  .bubble pre {
+    background: var(--bg-dark);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px;
+    margin-top: 10px;
+    overflow-x: auto;
+    font-family: 'Roboto Mono', monospace;
+    font-size: 12px;
+    color: #79C0FF;
+    line-height: 1.5;
+  }
+
+  .bubble-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 6px;
+    display: flex;
+    gap: 12px;
+  }
+
+  .bubble-meta span { cursor: pointer; }
+  .bubble-meta span:hover { color: var(--text-primary); }
+
+  /* Typing indicator */
+  .typing-indicator {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    border-top-left-radius: 4px;
+    width: fit-content;
+  }
+
+  .typing-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--gcp-blue);
+    animation: typingBounce 1.2s infinite ease-in-out;
+  }
+
+  .typing-dot:nth-child(2) { background: var(--gcp-red); animation-delay: 0.2s; }
+  .typing-dot:nth-child(3) { background: var(--gcp-green); animation-delay: 0.4s; }
+
+  @keyframes typingBounce {
+    0%, 80%, 100% { transform: scale(0.7); opacity: 0.5; }
+    40% { transform: scale(1); opacity: 1; }
+  }
+
+  /* Input area */
+  .input-area {
+    padding: 16px 24px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-card);
+  }
+
+  .input-wrapper {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 12px 14px;
+    transition: border-color 0.2s;
+  }
+
+  .input-wrapper:focus-within {
+    border-color: var(--gcp-blue);
+    box-shadow: 0 0 0 3px rgba(66,133,244,0.12);
+  }
+
+  .chat-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary);
+    font-family: 'Google Sans', sans-serif;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    max-height: 120px;
+    line-height: 1.5;
+    min-height: 22px;
+  }
+
+  .chat-input::placeholder { color: var(--text-muted); }
+
+  .input-actions {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .attach-btn {
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    transition: color 0.15s, background 0.15s;
+  }
+
+  .attach-btn:hover { color: var(--text-primary); background: var(--surface); }
+
+  .send-btn {
+    width: 34px;
+    height: 34px;
+    background: var(--gcp-blue);
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    transition: opacity 0.2s, transform 0.15s;
+    flex-shrink: 0;
+  }
+
+  .send-btn:hover { opacity: 0.88; transform: scale(0.97); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .input-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 10px;
+  }
+
+  .input-hint {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  kbd {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-size: 10px;
+    font-family: 'Roboto Mono', monospace;
+  }
+
+  .gcp-credits {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .gcp-credits span { color: var(--gcp-blue); font-weight: 500; }
+</style>
+</head>
+<body>
+
+<!-- Sidebar -->
+<div class="sidebar">
+  <div class="logo">
+    <div class="logo-dots">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>
+    <div class="logo-text"><span>GCP</span> AI Studio</div>
+  </div>
+
+  <button class="new-chat-btn" onclick="newChat()">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+    New Chat
+  </button>
+
+  <div class="sidebar-section">Recent</div>
+
+  <div class="chat-item active" onclick="selectChat(this)">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    GCP Architecture Help
+  </div>
+  <div class="chat-item" onclick="selectChat(this)">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    BigQuery SQL query
+  </div>
+  <div class="chat-item" onclick="selectChat(this)">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    Cloud Run deployment
+  </div>
+  <div class="chat-item" onclick="selectChat(this)">
+    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+    Vertex AI setup guide
+  </div>
+
+  <div class="model-badge" style="margin-top: auto; margin-bottom: 0;">
+    <div class="model-pulse"></div>
+    <div class="model-info">
+      <div class="model-name">Gemini 1.5 Pro</div>
+      <div class="model-label">Google Cloud · Active</div>
+    </div>
+  </div>
+</div>
+
+<!-- Main -->
+<div class="main">
+  <div class="header">
+    <div class="header-title">
+      GCP AI Chat
+      <span class="header-badge">Gemini 1.5 Pro</span>
+    </div>
+    <div class="header-actions">
+      <div class="icon-btn" title="Settings">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+      <div class="icon-btn" title="Clear chat" onclick="clearChat()">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+      </div>
+    </div>
+  </div>
+
+  <div class="messages" id="messages">
+    <div class="welcome" id="welcome">
+      <div class="welcome-icon">
+        <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+          <circle cx="24" cy="24" r="10" fill="#4285F4" opacity="0.2"/>
+          <path d="M24 14 L30 20 L24 26 L18 20 Z" fill="#4285F4"/>
+          <path d="M24 22 L30 28 L24 34 L18 28 Z" fill="#34A853"/>
+          <circle cx="24" cy="24" r="3" fill="white"/>
+        </svg>
+      </div>
+      <h2>Hello, how can I help?</h2>
+      <p>I'm powered by Gemini on Google Cloud Platform. Ask me about GCP services, architecture, code, or anything else.</p>
+      <div class="suggestions">
+        <div class="suggestion-card" onclick="suggest('Explain Google Cloud Run and when to use it')">
+          <div class="s-icon">☁️</div>
+          <div class="s-title">Cloud Run</div>
+          <div class="s-desc">When to use serverless containers</div>
+        </div>
+        <div class="suggestion-card" onclick="suggest('Write a BigQuery SQL query to find top 10 users by spend')">
+          <div class="s-icon">📊</div>
+          <div class="s-title">BigQuery SQL</div>
+          <div class="s-desc">Top users by spend query</div>
+        </div>
+        <div class="suggestion-card" onclick="suggest('Compare Cloud Storage vs Firestore vs BigTable for my use case')">
+          <div class="s-icon">🗄️</div>
+          <div class="s-title">Storage Options</div>
+          <div class="s-desc">GCS vs Firestore vs BigTable</div>
+        </div>
+        <div class="suggestion-card" onclick="suggest('How do I set up Vertex AI for a custom ML model?')">
+          <div class="s-icon">🤖</div>
+          <div class="s-title">Vertex AI</div>
+          <div class="s-desc">Deploy a custom ML model</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="input-area">
+    <div class="input-wrapper">
+      <button class="attach-btn" title="Attach file">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+      </button>
+      <textarea
+        class="chat-input"
+        id="chatInput"
+        placeholder="Message GCP AI..."
+        rows="1"
+        onkeydown="handleKey(event)"
+        oninput="autoResize(this)"
+      ></textarea>
+      <div class="input-actions">
+        <button class="send-btn" id="sendBtn" onclick="sendMessage()" title="Send">
+          <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="input-footer">
+      <div class="input-hint">
+        <kbd>Enter</kbd> to send · <kbd>Shift+Enter</kbd> for new line
+      </div>
+      <div class="gcp-credits">
+        Powered by <span>Google Cloud</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const BOT_RESPONSES = [
+    {
+      trigger: ['cloud run', 'serverless'],
+      reply: `<strong>Cloud Run</strong> is Google Cloud's fully managed serverless platform for containerized applications.\n\n<strong>Key features:</strong>\n• Auto-scales from 0 to N instances\n• Pay only for actual request processing time\n• Supports any language or framework in a container\n• Integrates with Cloud Build for CI/CD\n\n<strong>When to use it:</strong>\n• HTTP APIs or microservices\n• Event-driven workloads via Pub/Sub\n• Stateless short-lived processes\n\nExample deployment:\n<pre>gcloud run deploy my-service \\\n  --image gcr.io/my-project/my-image \\\n  --region us-central1 \\\n  --allow-unauthenticated</pre>`
+    },
+    {
+      trigger: ['bigquery', 'sql', 'spend', 'query'],
+      reply: `Here's a BigQuery SQL query to find the <strong>top 10 users by spend</strong>:\n\n<pre>SELECT\n  user_id,\n  SUM(amount) AS total_spend,\n  COUNT(*) AS transaction_count,\n  ROUND(AVG(amount), 2) AS avg_transaction\nFROM\n  \`project.dataset.transactions\`\nWHERE\n  created_at >= DATE_SUB(CURRENT_DATE(), INTERVAL 30 DAY)\nGROUP BY\n  user_id\nORDER BY\n  total_spend DESC\nLIMIT 10;</pre>\n\nThis query filters to the last 30 days and returns total spend, transaction count, and average per user.`
+    },
+    {
+      trigger: ['storage', 'firestore', 'bigtable', 'gcs'],
+      reply: `Here's a quick comparison of GCP storage options:\n\n<strong>Cloud Storage (GCS)</strong> — Object/blob storage\n• Best for: Files, backups, ML datasets, media\n• Query: No SQL, must download objects\n\n<strong>Firestore</strong> — NoSQL document database\n• Best for: Mobile/web apps, real-time sync, hierarchical data\n• Query: Rich filtering, subcollections\n\n<strong>Bigtable</strong> — Wide-column NoSQL\n• Best for: Time-series data, IoT, analytics at petabyte scale\n• Query: Row-key based, no ad-hoc SQL\n\nChoose <code>GCS</code> for unstructured files, <code>Firestore</code> for user data & real-time apps, and <code>Bigtable</code> for high-throughput analytical workloads.`
+    },
+    {
+      trigger: ['vertex', 'ml', 'model'],
+      reply: `To set up <strong>Vertex AI</strong> for a custom ML model, follow these steps:\n\n<strong>1. Enable APIs</strong>\n<pre>gcloud services enable aiplatform.googleapis.com</pre>\n\n<strong>2. Package your training code</strong> using a Python trainer module with a <code>task.py</code> entry point.\n\n<strong>3. Submit a training job</strong>\n<pre>gcloud ai custom-jobs create \\\n  --region=us-central1 \\\n  --display-name=my-training-job \\\n  --python-package-uris=gs://my-bucket/trainer.tar.gz \\\n  --python-module=trainer.task</pre>\n\n<strong>4. Deploy the model endpoint</strong> via the Vertex AI console or using the Python SDK:\n<pre>from google.cloud import aiplatform\naiplatform.init(project="my-project")\nmodel = aiplatform.Model.upload(...)\nendpoint = model.deploy(machine_type="n1-standard-4")</pre>`
+    }
+  ];
+
+  const DEFAULT_REPLY = "That's a great question about Google Cloud Platform! I can help you with GCP services like Compute Engine, Cloud Storage, BigQuery, Kubernetes Engine, Cloud Functions, Pub/Sub, Vertex AI, and more. Could you provide more details about what you'd like to accomplish?";
+
+  let isTyping = false;
+
+  function autoResize(el) {
+    el.style.height = 'auto';
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+  }
+
+  function handleKey(e) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  }
+
+  function suggest(text) {
+    document.getElementById('chatInput').value = text;
+    sendMessage();
+  }
+
+  function addMessage(content, sender) {
+    const welcome = document.getElementById('welcome');
+    if (welcome) welcome.remove();
+
+    const msgs = document.getElementById('messages');
+    const row = document.createElement('div');
+    row.className = `msg-row ${sender}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = `avatar ${sender === 'bot' ? 'bot' : 'user-av'}`;
+    avatar.textContent = sender === 'bot' ? 'G' : 'U';
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+
+    if (sender === 'bot') {
+      bubble.innerHTML = content.replace(/\n/g, '<br>');
+      const meta = document.createElement('div');
+      meta.className = 'bubble-meta';
+      meta.innerHTML = '<span title="Copy">⎘ Copy</span><span title="Regenerate">↺ Regenerate</span>';
+      bubble.appendChild(meta);
+    } else {
+      bubble.textContent = content;
+    }
+
+    row.appendChild(avatar);
+    row.appendChild(bubble);
+    msgs.appendChild(row);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function showTyping() {
+    const msgs = document.getElementById('messages');
+    const row = document.createElement('div');
+    row.className = 'msg-row bot';
+    row.id = 'typing-row';
+
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar bot';
+    avatar.textContent = 'G';
+
+    const indicator = document.createElement('div');
+    indicator.className = 'typing-indicator';
+    indicator.innerHTML = '<div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div>';
+
+    row.appendChild(avatar);
+    row.appendChild(indicator);
+    msgs.appendChild(row);
+    msgs.scrollTop = msgs.scrollHeight;
+  }
+
+  function removeTyping() {
+    const t = document.getElementById('typing-row');
+    if (t) t.remove();
+  }
+
+  function getBotReply(message) {
+    const lower = message.toLowerCase();
+    for (const r of BOT_RESPONSES) {
+      if (r.trigger.some(t => lower.includes(t))) return r.reply;
+    }
+    return DEFAULT_REPLY;
+  }
+
+  function sendMessage() {
+    if (isTyping) return;
+    const input = document.getElementById('chatInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    addMessage(text, 'user');
+    input.value = '';
+    input.style.height = 'auto';
+    isTyping = true;
+    document.getElementById('sendBtn').disabled = true;
+
+    showTyping();
+    setTimeout(() => {
+      removeTyping();
+      const reply = getBotReply(text);
+      addMessage(reply, 'bot');
+      isTyping = false;
+      document.getElementById('sendBtn').disabled = false;
+    }, 1000 + Math.random() * 800);
+  }
+
+  function clearChat() {
+    const msgs = document.getElementById('messages');
+    msgs.innerHTML = '';
+    msgs.insertAdjacentHTML('beforeend', `
+      <div class="welcome" id="welcome">
+        <div class="welcome-icon">
+          <svg width="32" height="32" viewBox="0 0 48 48" fill="none">
+            <circle cx="24" cy="24" r="10" fill="#4285F4" opacity="0.2"/>
+            <path d="M24 14 L30 20 L24 26 L18 20 Z" fill="#4285F4"/>
+            <path d="M24 22 L30 28 L24 34 L18 28 Z" fill="#34A853"/>
+            <circle cx="24" cy="24" r="3" fill="white"/>
+          </svg>
+        </div>
+        <h2>Hello, how can I help?</h2>
+        <p>I'm powered by Gemini on Google Cloud Platform. Ask me about GCP services, architecture, code, or anything else.</p>
+        <div class="suggestions">
+          <div class="suggestion-card" onclick="suggest('Explain Google Cloud Run and when to use it')">
+            <div class="s-icon">☁️</div><div class="s-title">Cloud Run</div><div class="s-desc">When to use serverless containers</div>
+          </div>
+          <div class="suggestion-card" onclick="suggest('Write a BigQuery SQL query to find top 10 users by spend')">
+            <div class="s-icon">📊</div><div class="s-title">BigQuery SQL</div><div class="s-desc">Top users by spend query</div>
+          </div>
+          <div class="suggestion-card" onclick="suggest('Compare Cloud Storage vs Firestore vs BigTable for my use case')">
+            <div class="s-icon">🗄️</div><div class="s-title">Storage Options</div><div class="s-desc">GCS vs Firestore vs BigTable</div>
+          </div>
+          <div class="suggestion-card" onclick="suggest('How do I set up Vertex AI for a custom ML model?')">
+            <div class="s-icon">🤖</div><div class="s-title">Vertex AI</div><div class="s-desc">Deploy a custom ML model</div>
+          </div>
+        </div>
+      </div>
+    `);
+  }
+
+  function newChat() { clearChat(); }
+
+  function selectChat(el) {
+    document.querySelectorAll('.chat-item').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+  }
+</script>
+</body>
+</html>
